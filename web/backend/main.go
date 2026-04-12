@@ -12,6 +12,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -30,6 +31,7 @@ import (
 	"github.com/sipeed/picoclaw/web/backend/dashboardauth"
 	"github.com/sipeed/picoclaw/web/backend/launcherconfig"
 	"github.com/sipeed/picoclaw/web/backend/middleware"
+	"github.com/sipeed/picoclaw/web/backend/missioncontrol"
 	"github.com/sipeed/picoclaw/web/backend/utils"
 )
 
@@ -267,6 +269,28 @@ func main() {
 	// API Routes (e.g. /api/status)
 	apiHandler = api.NewHandler(absPath)
 	apiHandler.SetDebug(debug)
+
+	// Initialize Mission Control database
+	mcDB, mcDBErr := missioncontrol.Open(picoHome)
+	if mcDBErr != nil {
+		logger.ErrorC("web", fmt.Sprintf("Warning: could not open mission-control database: %v", mcDBErr))
+	} else {
+		defer mcDB.Close()
+		apiHandler.SetMCDB(mcDB)
+
+		// Seed default agents if database is empty
+		if err := missioncontrol.SeedDefaultAgents(context.Background(), mcDB); err != nil {
+			logger.ErrorC("web", fmt.Sprintf("Warning: failed to seed default agents: %v", err))
+		}
+		// Start agent health monitor
+		go missioncontrol.StartHealthMonitor(context.Background(), mcDB)
+	}
+
+	// Initialize Mission Control broadcaster
+	mcBroadcaster := missioncontrol.NewBroadcaster()
+	apiHandler.SetBroadcaster(mcBroadcaster)
+	apiHandler.SetPicoHome(picoHome)
+
 	if _, err = apiHandler.EnsurePicoChannel(""); err != nil {
 		logger.ErrorC("web", fmt.Sprintf("Warning: failed to ensure pico channel on startup: %v", err))
 	}

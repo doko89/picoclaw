@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ModelsRouteImport } from './routes/models'
+import { Route as McRouteImport } from './routes/mc'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as LauncherSetupRouteImport } from './routes/launcher-setup'
 import { Route as LauncherLoginRouteImport } from './routes/launcher-login'
@@ -18,15 +19,26 @@ import { Route as ConfigRouteImport } from './routes/config'
 import { Route as AgentRouteImport } from './routes/agent'
 import { Route as ChannelsRouteRouteImport } from './routes/channels/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as McWorkspacesRouteImport } from './routes/mc/workspaces'
+import { Route as McTasksRouteImport } from './routes/mc/tasks'
+import { Route as McAgentsRouteImport } from './routes/mc/agents'
+import { Route as McActivityRouteImport } from './routes/mc/activity'
 import { Route as ConfigRawRouteImport } from './routes/config.raw'
 import { Route as ChannelsNameRouteImport } from './routes/channels/$name'
 import { Route as AgentToolsRouteImport } from './routes/agent/tools'
 import { Route as AgentSkillsRouteImport } from './routes/agent/skills'
 import { Route as AgentHubRouteImport } from './routes/agent/hub'
+import { Route as McAutopilotIndexRouteImport } from './routes/mc/autopilot/index'
+import { Route as McAutopilotProductIdRouteImport } from './routes/mc/autopilot/$productId'
 
 const ModelsRoute = ModelsRouteImport.update({
   id: '/models',
   path: '/models',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McRoute = McRouteImport.update({
+  id: '/mc',
+  path: '/mc',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LogsRoute = LogsRouteImport.update({
@@ -69,6 +81,26 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const McWorkspacesRoute = McWorkspacesRouteImport.update({
+  id: '/workspaces',
+  path: '/workspaces',
+  getParentRoute: () => McRoute,
+} as any)
+const McTasksRoute = McTasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
+  getParentRoute: () => McRoute,
+} as any)
+const McAgentsRoute = McAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => McRoute,
+} as any)
+const McActivityRoute = McActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => McRoute,
+} as any)
 const ConfigRawRoute = ConfigRawRouteImport.update({
   id: '/raw',
   path: '/raw',
@@ -94,6 +126,16 @@ const AgentHubRoute = AgentHubRouteImport.update({
   path: '/hub',
   getParentRoute: () => AgentRoute,
 } as any)
+const McAutopilotIndexRoute = McAutopilotIndexRouteImport.update({
+  id: '/autopilot/',
+  path: '/autopilot/',
+  getParentRoute: () => McRoute,
+} as any)
+const McAutopilotProductIdRoute = McAutopilotProductIdRouteImport.update({
+  id: '/autopilot/$productId',
+  path: '/autopilot/$productId',
+  getParentRoute: () => McRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -104,12 +146,19 @@ export interface FileRoutesByFullPath {
   '/launcher-login': typeof LauncherLoginRoute
   '/launcher-setup': typeof LauncherSetupRoute
   '/logs': typeof LogsRoute
+  '/mc': typeof McRouteWithChildren
   '/models': typeof ModelsRoute
   '/agent/hub': typeof AgentHubRoute
   '/agent/skills': typeof AgentSkillsRoute
   '/agent/tools': typeof AgentToolsRoute
   '/channels/$name': typeof ChannelsNameRoute
   '/config/raw': typeof ConfigRawRoute
+  '/mc/activity': typeof McActivityRoute
+  '/mc/agents': typeof McAgentsRoute
+  '/mc/tasks': typeof McTasksRoute
+  '/mc/workspaces': typeof McWorkspacesRoute
+  '/mc/autopilot/$productId': typeof McAutopilotProductIdRoute
+  '/mc/autopilot/': typeof McAutopilotIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -120,12 +169,19 @@ export interface FileRoutesByTo {
   '/launcher-login': typeof LauncherLoginRoute
   '/launcher-setup': typeof LauncherSetupRoute
   '/logs': typeof LogsRoute
+  '/mc': typeof McRouteWithChildren
   '/models': typeof ModelsRoute
   '/agent/hub': typeof AgentHubRoute
   '/agent/skills': typeof AgentSkillsRoute
   '/agent/tools': typeof AgentToolsRoute
   '/channels/$name': typeof ChannelsNameRoute
   '/config/raw': typeof ConfigRawRoute
+  '/mc/activity': typeof McActivityRoute
+  '/mc/agents': typeof McAgentsRoute
+  '/mc/tasks': typeof McTasksRoute
+  '/mc/workspaces': typeof McWorkspacesRoute
+  '/mc/autopilot/$productId': typeof McAutopilotProductIdRoute
+  '/mc/autopilot': typeof McAutopilotIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -137,12 +193,19 @@ export interface FileRoutesById {
   '/launcher-login': typeof LauncherLoginRoute
   '/launcher-setup': typeof LauncherSetupRoute
   '/logs': typeof LogsRoute
+  '/mc': typeof McRouteWithChildren
   '/models': typeof ModelsRoute
   '/agent/hub': typeof AgentHubRoute
   '/agent/skills': typeof AgentSkillsRoute
   '/agent/tools': typeof AgentToolsRoute
   '/channels/$name': typeof ChannelsNameRoute
   '/config/raw': typeof ConfigRawRoute
+  '/mc/activity': typeof McActivityRoute
+  '/mc/agents': typeof McAgentsRoute
+  '/mc/tasks': typeof McTasksRoute
+  '/mc/workspaces': typeof McWorkspacesRoute
+  '/mc/autopilot/$productId': typeof McAutopilotProductIdRoute
+  '/mc/autopilot/': typeof McAutopilotIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -155,12 +218,19 @@ export interface FileRouteTypes {
     | '/launcher-login'
     | '/launcher-setup'
     | '/logs'
+    | '/mc'
     | '/models'
     | '/agent/hub'
     | '/agent/skills'
     | '/agent/tools'
     | '/channels/$name'
     | '/config/raw'
+    | '/mc/activity'
+    | '/mc/agents'
+    | '/mc/tasks'
+    | '/mc/workspaces'
+    | '/mc/autopilot/$productId'
+    | '/mc/autopilot/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -171,12 +241,19 @@ export interface FileRouteTypes {
     | '/launcher-login'
     | '/launcher-setup'
     | '/logs'
+    | '/mc'
     | '/models'
     | '/agent/hub'
     | '/agent/skills'
     | '/agent/tools'
     | '/channels/$name'
     | '/config/raw'
+    | '/mc/activity'
+    | '/mc/agents'
+    | '/mc/tasks'
+    | '/mc/workspaces'
+    | '/mc/autopilot/$productId'
+    | '/mc/autopilot'
   id:
     | '__root__'
     | '/'
@@ -187,12 +264,19 @@ export interface FileRouteTypes {
     | '/launcher-login'
     | '/launcher-setup'
     | '/logs'
+    | '/mc'
     | '/models'
     | '/agent/hub'
     | '/agent/skills'
     | '/agent/tools'
     | '/channels/$name'
     | '/config/raw'
+    | '/mc/activity'
+    | '/mc/agents'
+    | '/mc/tasks'
+    | '/mc/workspaces'
+    | '/mc/autopilot/$productId'
+    | '/mc/autopilot/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -204,6 +288,7 @@ export interface RootRouteChildren {
   LauncherLoginRoute: typeof LauncherLoginRoute
   LauncherSetupRoute: typeof LauncherSetupRoute
   LogsRoute: typeof LogsRoute
+  McRoute: typeof McRouteWithChildren
   ModelsRoute: typeof ModelsRoute
 }
 
@@ -214,6 +299,13 @@ declare module '@tanstack/react-router' {
       path: '/models'
       fullPath: '/models'
       preLoaderRoute: typeof ModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mc': {
+      id: '/mc'
+      path: '/mc'
+      fullPath: '/mc'
+      preLoaderRoute: typeof McRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/logs': {
@@ -272,6 +364,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mc/workspaces': {
+      id: '/mc/workspaces'
+      path: '/workspaces'
+      fullPath: '/mc/workspaces'
+      preLoaderRoute: typeof McWorkspacesRouteImport
+      parentRoute: typeof McRoute
+    }
+    '/mc/tasks': {
+      id: '/mc/tasks'
+      path: '/tasks'
+      fullPath: '/mc/tasks'
+      preLoaderRoute: typeof McTasksRouteImport
+      parentRoute: typeof McRoute
+    }
+    '/mc/agents': {
+      id: '/mc/agents'
+      path: '/agents'
+      fullPath: '/mc/agents'
+      preLoaderRoute: typeof McAgentsRouteImport
+      parentRoute: typeof McRoute
+    }
+    '/mc/activity': {
+      id: '/mc/activity'
+      path: '/activity'
+      fullPath: '/mc/activity'
+      preLoaderRoute: typeof McActivityRouteImport
+      parentRoute: typeof McRoute
+    }
     '/config/raw': {
       id: '/config/raw'
       path: '/raw'
@@ -306,6 +426,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/agent/hub'
       preLoaderRoute: typeof AgentHubRouteImport
       parentRoute: typeof AgentRoute
+    }
+    '/mc/autopilot/': {
+      id: '/mc/autopilot/'
+      path: '/autopilot'
+      fullPath: '/mc/autopilot/'
+      preLoaderRoute: typeof McAutopilotIndexRouteImport
+      parentRoute: typeof McRoute
+    }
+    '/mc/autopilot/$productId': {
+      id: '/mc/autopilot/$productId'
+      path: '/autopilot/$productId'
+      fullPath: '/mc/autopilot/$productId'
+      preLoaderRoute: typeof McAutopilotProductIdRouteImport
+      parentRoute: typeof McRoute
     }
   }
 }
@@ -347,6 +481,26 @@ const ConfigRouteChildren: ConfigRouteChildren = {
 const ConfigRouteWithChildren =
   ConfigRoute._addFileChildren(ConfigRouteChildren)
 
+interface McRouteChildren {
+  McActivityRoute: typeof McActivityRoute
+  McAgentsRoute: typeof McAgentsRoute
+  McTasksRoute: typeof McTasksRoute
+  McWorkspacesRoute: typeof McWorkspacesRoute
+  McAutopilotProductIdRoute: typeof McAutopilotProductIdRoute
+  McAutopilotIndexRoute: typeof McAutopilotIndexRoute
+}
+
+const McRouteChildren: McRouteChildren = {
+  McActivityRoute: McActivityRoute,
+  McAgentsRoute: McAgentsRoute,
+  McTasksRoute: McTasksRoute,
+  McWorkspacesRoute: McWorkspacesRoute,
+  McAutopilotProductIdRoute: McAutopilotProductIdRoute,
+  McAutopilotIndexRoute: McAutopilotIndexRoute,
+}
+
+const McRouteWithChildren = McRoute._addFileChildren(McRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChannelsRouteRoute: ChannelsRouteRouteWithChildren,
@@ -356,6 +510,7 @@ const rootRouteChildren: RootRouteChildren = {
   LauncherLoginRoute: LauncherLoginRoute,
   LauncherSetupRoute: LauncherSetupRoute,
   LogsRoute: LogsRoute,
+  McRoute: McRouteWithChildren,
   ModelsRoute: ModelsRoute,
 }
 export const routeTree = rootRouteImport

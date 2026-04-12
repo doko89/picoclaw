@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/sipeed/picoclaw/web/backend/launcherconfig"
+	"github.com/sipeed/picoclaw/web/backend/missioncontrol"
 )
 
 // Handler serves HTTP API requests.
@@ -22,6 +23,11 @@ type Handler struct {
 	weixinFlows          map[string]*weixinFlow
 	wecomMu              sync.Mutex
 	wecomFlows           map[string]*wecomFlow
+
+	// Mission Control
+	mcDB        *missioncontrol.DB
+	broadcaster *missioncontrol.Broadcaster
+	picoHome    string
 }
 
 // NewHandler creates an instance of the API handler.
@@ -46,6 +52,21 @@ func (h *Handler) SetServerOptions(port int, public bool, publicExplicit bool, a
 
 func (h *Handler) SetDebug(debug bool) {
 	h.debug = debug
+}
+
+// SetMCDB sets the Mission Control database handle.
+func (h *Handler) SetMCDB(db *missioncontrol.DB) {
+	h.mcDB = db
+}
+
+// SetBroadcaster sets the Mission Control SSE broadcaster.
+func (h *Handler) SetBroadcaster(b *missioncontrol.Broadcaster) {
+	h.broadcaster = b
+}
+
+// SetPicoHome sets the PicoClaw home directory path.
+func (h *Handler) SetPicoHome(home string) {
+	h.picoHome = home
 }
 
 // RegisterRoutes binds all API endpoint handlers to the ServeMux.
@@ -92,6 +113,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	// WeCom QR login flow
 	h.registerWecomRoutes(mux)
+
+	// Mission Control API
+	h.registerMCRoutes(mux)
 }
 
 // Shutdown gracefully shuts down the handler, stopping the gateway if it was started by this handler.

@@ -6,10 +6,12 @@ import {
   IconKey,
   IconListDetails,
   IconMessageCircle,
+  IconRocket,
   IconSearch,
   IconSettings,
   IconSparkles,
   IconTools,
+  IconUsers,
 } from "@tabler/icons-react"
 import { Link, useRouterState } from "@tanstack/react-router"
 import * as React from "react"
@@ -166,6 +168,37 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             url: "/logs",
             icon: IconListDetails,
             translateTitle: true,
+          },
+        ],
+      },
+      {
+        label: "Mission Control",
+        defaultOpen: true,
+        items: [
+          {
+            title: "autopilot",
+            url: "/mc/autopilot",
+            icon: IconRocket,
+          },
+          {
+            title: "workspaces",
+            url: "/mc/workspaces",
+            icon: IconSparkles,
+          },
+          {
+            title: "tasks",
+            url: "/mc/tasks",
+            icon: IconListDetails,
+          },
+          {
+            title: "agents",
+            url: "/mc/agents",
+            icon: IconUsers,
+          },
+          {
+            title: "activity",
+            url: "/mc/activity",
+            icon: IconMessageCircle,
           },
         ],
       },
