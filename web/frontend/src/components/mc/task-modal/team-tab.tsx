@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { getTaskRoles, createTaskRole, deleteTaskRole, getAgents, type MCTaskRole, type MCAgent } from "@/api/mc"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface TeamTabProps {
   taskId: string
@@ -55,18 +56,21 @@ export function TeamTab({ taskId }: TeamTabProps) {
 
       {showForm && (
         <div className="border rounded-md p-3 space-y-2">
-          <select
-            className="w-full text-sm border rounded-md px-3 py-1.5"
-            value={selectedAgent}
-            onChange={(e) => setSelectedAgent(e.target.value)}
+          <Select
+            value={selectedAgent || undefined}
+            onValueChange={(val) => setSelectedAgent(val)}
           >
-            <option value="">Select agent...</option>
-            {agents.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.avatar_emoji} {a.name} - {a.role}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select agent..." />
+            </SelectTrigger>
+            <SelectContent>
+              {agents.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.avatar_emoji} {a.name} - {a.role}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <input
             className="w-full text-sm border rounded-md px-3 py-1.5 outline-none"
             placeholder="Role (e.g., developer, reviewer, tester)"

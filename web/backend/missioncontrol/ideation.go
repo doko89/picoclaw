@@ -5,6 +5,7 @@ package missioncontrol
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -38,17 +39,19 @@ type IdeationCycle struct {
 
 // Idea represents a generated product idea.
 type Idea struct {
-	ID           string    `json:"id"`
-	ProductID    string    `json:"product_id"`
-	Title        string    `json:"title"`
-	Description  string    `json:"description"`
-	Category     string    `json:"category"`
-	Priority     float64   `json:"priority"`      // Similarity score
-	Source       string    `json:"source"`        // "ai" or "manual"
-	Status       string    `json:"status"`        // "pending", "approved", "rejected", "maybe"
-	Suppressed   bool      `json:"suppressed"`    // Auto-suppressed by similarity
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID               string    `json:"id"`
+	ProductID        string    `json:"product_id"`
+	Title            string    `json:"title"`
+	Description      string    `json:"description"`
+	Category         string    `json:"category"`
+	Priority         float64   `json:"priority"`      // Similarity score
+	Source           string    `json:"source"`        // "ai" or "manual"
+	Status           string    `json:"status"`        // "pending", "approved", "rejected", "maybe"
+	Suppressed       bool      `json:"suppressed"`    // Auto-suppressed by similarity
+	ResurfacedFrom   *string   `json:"resurfaced_from,omitempty"`
+	ResurfacedReason *string   `json:"resurfaced_reason,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // RunIdeationCycle runs an ideation cycle asynchronously.
@@ -557,6 +560,265 @@ func rebuildPreferenceModel(ctx context.Context, db *DB, productID string) {
 	// TODO: Implement actual ML model
 }
 
+// SwipeHistory represents a swipe action recorded in the system.
+type SwipeHistory struct {
+	ID               string    `json:"id"`
+	IdeaID           string    `json:"idea_id"`
+	ProductID        string    `json:"product_id"`
+	Action           string    `json:"action"`
+	Category         string    `json:"category"`
+	Tags             *string   `json:"tags,omitempty"`
+	ImpactScore      *float64  `json:"impact_score,omitempty"`
+	FeasibilityScore *float64  `json:"feasibility_score,omitempty"`
+	Complexity       *string   `json:"complexity,omitempty"`
+	UserNotes        *string   `json:"user_notes,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+// SwipeStats holds swipe statistics for a product.
+type SwipeStats struct {
+	TotalSwipes   int                `json:"total_swipes"`
+	ApprovalRate  float64            `json:"approval_rate"`
+	PerCategory   map[string]CatStats `json:"per_category"`
+}
+
+// CatStats holds per-category swipe breakdown.
+type CatStats struct {
+	Approved int `json:"approved"`
+	Rejected int `json:"rejected"`
+	Maybe    int `json:"maybe"`
+	Fire     int `json:"fire"`
+}
+
+// BatchSwipeInput represents one action in a batch swipe request.
+type BatchSwipeInput struct {
+	IdeaID string `json:"idea_id"`
+	Action string `json:"action"` // approve, reject, maybe, fire
+}
+
+// UndoSwipe undoes a swipe action within the 10-second undo window.
+// Returns the restored idea or an error if undo is not allowed.
+func UndoSwipe(ctx context.Context, db *DB, productID, swipeID string) (*Idea, error) {
+	const undoWindowSeconds = 10
+
+	// Get the swipe record
+	var createdAt time.Time
+	var ideaID string
+	err := db.QueryRowContext(ctx,
+		`SELECT id, idea_id, created_at FROM swipe_history WHERE id = ? AND product_id = ?`,
+		swipeID, productID,
+	).Scan(&swipeID, &ideaID, &createdAt)
+	if err != nil {
+		return nil, fmt.Errorf("swipe not found: %w", err)
+	}
+
+	// Check undo window
+	if time.Since(createdAt) > undoWindowSeconds*time.Second {
+		return nil, fmt.Errorf("undo window has expired")
+	}
+
+	// Start transaction
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// Restore idea to pending
+	_, err = tx.ExecContext(ctx,
+		`UPDATE ideas SET status = 'pending', updated_at = datetime('now') WHERE id = ?`,
+		ideaID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("restore idea: %w", err)
+	}
+
+	// Delete from maybe_pool if present
+	_, _ = tx.ExecContext(ctx, `DELETE FROM maybe_pool WHERE idea_id = ?`, ideaID)
+
+	// Delete swipe record
+	_, err = tx.ExecContext(ctx, `DELETE FROM swipe_history WHERE id = ?`, swipeID)
+	if err != nil {
+		return nil, fmt.Errorf("delete swipe: %w", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	// Fetch restored idea
+	var idea Idea
+	err = db.QueryRowContext(ctx,
+		`SELECT id, product_id, title, description, category, priority, source, status, suppressed, created_at, updated_at
+		FROM ideas WHERE id = ?`, ideaID,
+	).Scan(&idea.ID, &idea.ProductID, &idea.Title, &idea.Description,
+		&idea.Category, &idea.Priority, &idea.Source, &idea.Status, &idea.Suppressed,
+		&idea.CreatedAt, &idea.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("fetch restored idea: %w", err)
+	}
+
+	return &idea, nil
+}
+
+// BatchSwipe processes multiple swipe actions in a single transaction.
+func BatchSwipe(ctx context.Context, db *DB, productID string, actions []BatchSwipeInput) error {
+	if len(actions) == 0 || len(actions) > 200 {
+		return fmt.Errorf("batch size must be 1-200")
+	}
+
+	return db.RunTx(ctx, func(tx *sql.Tx) error {
+		for _, a := range actions {
+			// Validate action
+			if a.Action != "approve" && a.Action != "reject" && a.Action != "maybe" && a.Action != "fire" {
+				return fmt.Errorf("invalid action: %s", a.Action)
+			}
+
+			// Verify idea exists and is pending
+			var status string
+			err := tx.QueryRowContext(ctx,
+				`SELECT status FROM ideas WHERE id = ? AND product_id = ?`,
+				a.IdeaID, productID,
+			).Scan(&status)
+			if err != nil {
+				return fmt.Errorf("idea %s not found: %w", a.IdeaID, err)
+			}
+			if status != "pending" {
+				return fmt.Errorf("idea %s is not pending (status: %s)", a.IdeaID, status)
+			}
+
+			// Record swipe
+			_, err = tx.ExecContext(ctx,
+				`INSERT INTO swipe_history (id, product_id, idea_id, action, notes, created_at)
+				VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+				uuid.New().String(), productID, a.IdeaID, a.Action, "",
+			)
+			if err != nil {
+				return fmt.Errorf("record swipe for %s: %w", a.IdeaID, err)
+			}
+
+			// Update idea status
+			newStatus := "pending"
+			switch a.Action {
+			case "approve":
+				newStatus = "approved"
+			case "reject":
+				newStatus = "rejected"
+			case "maybe":
+				newStatus = "maybe"
+			case "fire":
+				newStatus = "building"
+			}
+			_, err = tx.ExecContext(ctx,
+				`UPDATE ideas SET status = ?, updated_at = datetime('now') WHERE id = ?`,
+				newStatus, a.IdeaID,
+			)
+			if err != nil {
+				return fmt.Errorf("update idea %s: %w", a.IdeaID, err)
+			}
+
+			// If maybe, add to maybe_pool
+			if a.Action == "maybe" {
+				_, _ = tx.ExecContext(ctx,
+					`INSERT OR IGNORE INTO maybe_pool (id, idea_id, product_id, created_at)
+					VALUES (?, ?, ?, datetime('now'))`,
+					uuid.New().String(), a.IdeaID, productID,
+				)
+			}
+		}
+		return nil
+	})
+}
+
+// GetSwipeHistory retrieves swipe history for a product, ordered newest first.
+func GetSwipeHistory(ctx context.Context, db *DB, productID string, limit int) ([]SwipeHistory, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+
+	rows, err := db.QueryContext(ctx,
+		`SELECT id, idea_id, product_id, action, category, tags, impact_score, feasibility_score, complexity, user_notes, created_at
+		FROM swipe_history WHERE product_id = ?
+		ORDER BY created_at DESC LIMIT ?`,
+		productID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query swipe history: %w", err)
+	}
+	defer rows.Close()
+
+	var history []SwipeHistory
+	for rows.Next() {
+		var h SwipeHistory
+		err := rows.Scan(&h.ID, &h.IdeaID, &h.ProductID, &h.Action, &h.Category,
+			&h.Tags, &h.ImpactScore, &h.FeasibilityScore, &h.Complexity, &h.UserNotes, &h.CreatedAt)
+		if err != nil {
+			continue
+		}
+		history = append(history, h)
+	}
+
+	if history == nil {
+		history = []SwipeHistory{}
+	}
+	return history, nil
+}
+
+// GetSwipeStats computes swipe statistics for a product.
+func GetSwipeStats(ctx context.Context, db *DB, productID string) (*SwipeStats, error) {
+	// Total counts
+	var total, approved, rejected, maybe, fire int
+	err := db.QueryRowContext(ctx,
+		`SELECT COUNT(*),
+			COALESCE(SUM(CASE WHEN action='approve' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN action='reject' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN action='maybe' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN action='fire' THEN 1 ELSE 0 END), 0)
+		FROM swipe_history WHERE product_id = ?`,
+		productID,
+	).Scan(&total, &approved, &rejected, &maybe, &fire)
+	if err != nil {
+		return nil, fmt.Errorf("query swipe totals: %w", err)
+	}
+
+	// Per-category breakdown
+	rows, err := db.QueryContext(ctx,
+		`SELECT COALESCE(category, 'unknown'),
+			SUM(CASE WHEN action='approve' THEN 1 ELSE 0 END),
+			SUM(CASE WHEN action='reject' THEN 1 ELSE 0 END),
+			SUM(CASE WHEN action='maybe' THEN 1 ELSE 0 END),
+			SUM(CASE WHEN action='fire' THEN 1 ELSE 0 END)
+		FROM swipe_history WHERE product_id = ?
+		GROUP BY category`,
+		productID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query per-category stats: %w", err)
+	}
+	defer rows.Close()
+
+	perCategory := make(map[string]CatStats)
+	for rows.Next() {
+		var cat string
+		var a, r, m, f int
+		if err := rows.Scan(&cat, &a, &r, &m, &f); err != nil {
+			continue
+		}
+		perCategory[cat] = CatStats{Approved: a, Rejected: r, Maybe: m, Fire: f}
+	}
+
+	approvalRate := 0.0
+	if total > 0 {
+		approvalRate = float64(approved+fire) / float64(total)
+	}
+
+	return &SwipeStats{
+		TotalSwipes:  total,
+		ApprovalRate: approvalRate,
+		PerCategory:  perCategory,
+	}, nil
+}
+
 // GetIdeationCycles retrieves ideation cycles for a product.
 func GetIdeationCycles(ctx context.Context, db *DB, productID string) ([]IdeationCycle, error) {
 	rows, err := db.QueryContext(ctx,
@@ -589,4 +851,4 @@ func GetIdeationCycles(ctx context.Context, db *DB, productID string) ([]Ideatio
 		}
 
 		return cycles, nil
-	}
+}

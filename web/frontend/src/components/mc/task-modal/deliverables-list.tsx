@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { getTaskDeliverables, createTaskDeliverable, type MCDeliverable } from "@/api/mc"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface DeliverablesListProps {
   taskId: string
@@ -52,16 +53,20 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
             onChange={(e) => setTitle(e.target.value)}
           />
           <div className="flex gap-2">
-            <select
-              className="text-sm border rounded-md px-2 py-1.5"
+            <Select
               value={type}
-              onChange={(e) => setType(e.target.value)}
+              onValueChange={(val) => setType(val)}
             >
-              <option value="file">File</option>
-              <option value="document">Document</option>
-              <option value="code">Code</option>
-              <option value="artifact">Artifact</option>
-            </select>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="file">File</SelectItem>
+                <SelectItem value="document">Document</SelectItem>
+                <SelectItem value="code">Code</SelectItem>
+                <SelectItem value="artifact">Artifact</SelectItem>
+              </SelectContent>
+            </Select>
             <input
               className="flex-1 text-sm border rounded-md px-3 py-1.5 outline-none"
               placeholder="Path (optional)"

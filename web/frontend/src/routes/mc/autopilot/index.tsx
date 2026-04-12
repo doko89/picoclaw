@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ProductHealthBadge } from "@/components/mc/autopilot/HealthBadge";
 
 export const Route = createFileRoute("/mc/autopilot/")({
   component: AutopilotIndex,
@@ -82,39 +83,39 @@ function AutopilotContent() {
     return <div className="text-muted-foreground">{t("mc.loading_products")}</div>;
   }
 
-  if (products.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground mb-4">{t("mc.no_products_yet")}</p>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md"
-        >
-          <IconPlus size={16} />
-          {t("mc.create_product")}
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold">{t("mc.products")} ({products.length})</h2>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md"
-        >
-          <IconPlus size={16} />
-          {t("mc.new_product")}
-        </button>
-      </div>
+      {products.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground mb-4">{t("mc.no_products_yet")}</p>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md"
+          >
+            <IconPlus size={16} />
+            {t("mc.create_product")}
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">{t("mc.products")} ({products.length})</h2>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md"
+            >
+              <IconPlus size={16} />
+              {t("mc.new_product")}
+            </button>
+          </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </>
+      )}
 
       <Dialog open={showCreate} onOpenChange={(v) => !v && setShowCreate(false)}>
         <DialogContent className="max-w-md">
@@ -174,9 +175,12 @@ function ProductCard({ product }: { product: MCProduct }) {
     >
       <div className="flex justify-between items-start mb-2">
         <h3 className="font-semibold text-lg">{product.name}</h3>
-        <span className={`text-xs px-2 py-1 rounded ${tierColors[product.automation_tier] || "bg-muted text-muted-foreground"}`}>
-          {product.automation_tier === "full_auto" ? t("mc.tier_full_auto") : product.automation_tier === "semi_auto" ? t("mc.tier_semi_auto") : t("mc.tier_supervised")}
-        </span>
+        <div className="flex items-center gap-2">
+          <ProductHealthBadge productId={product.id} size={36} />
+          <span className={`text-xs px-2 py-1 rounded ${tierColors[product.automation_tier] || "bg-muted text-muted-foreground"}`}>
+            {product.automation_tier === "full_auto" ? t("mc.tier_full_auto") : product.automation_tier === "semi_auto" ? t("mc.tier_semi_auto") : t("mc.tier_supervised")}
+          </span>
+        </div>
       </div>
 
       {product.description && (

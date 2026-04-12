@@ -20,6 +20,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export const Route = createFileRoute("/mc/agents")({
 	component: AgentsPage,
@@ -184,17 +185,21 @@ function AgentsPage() {
 							onChange={(e) => setName(e.target.value)}
 							autoFocus
 						/>
-						<select
-							className="w-full text-sm border rounded-md px-3 py-2"
+						<Select
 							value={role}
-							onChange={(e) => setRole(e.target.value)}
+							onValueChange={(val) => setRole(val)}
 						>
-							<option value="developer">{t("mc.role_developer")}</option>
-							<option value="reviewer">{t("mc.role_reviewer")}</option>
-							<option value="tester">{t("mc.role_tester")}</option>
-							<option value="planner">{t("mc.role_planner")}</option>
-							<option value="orchestrator">{t("mc.role_orchestrator")}</option>
-						</select>
+							<SelectTrigger className="w-full">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="developer">{t("mc.role_developer")}</SelectItem>
+								<SelectItem value="reviewer">{t("mc.role_reviewer")}</SelectItem>
+								<SelectItem value="tester">{t("mc.role_tester")}</SelectItem>
+								<SelectItem value="planner">{t("mc.role_planner")}</SelectItem>
+								<SelectItem value="orchestrator">{t("mc.role_orchestrator")}</SelectItem>
+							</SelectContent>
+						</Select>
 						<textarea
 							className="w-full text-sm border rounded-md px-3 py-2 outline-none resize-none"
 							rows={2}
@@ -340,17 +345,21 @@ function AgentCard({ agent, onDelete }: { agent: MCAgent; onDelete: (id: string)
 							onChange={(e) => setName(e.target.value)}
 							autoFocus
 						/>
-						<select
-							className="w-full text-sm border rounded-md px-3 py-2"
+						<Select
 							value={role}
-							onChange={(e) => setRole(e.target.value)}
+							onValueChange={(val) => setRole(val)}
 						>
-							<option value="developer">{t("mc.role_developer")}</option>
-							<option value="reviewer">{t("mc.role_reviewer")}</option>
-							<option value="tester">{t("mc.role_tester")}</option>
-							<option value="planner">{t("mc.role_planner")}</option>
-							<option value="orchestrator">{t("mc.role_orchestrator")}</option>
-						</select>
+							<SelectTrigger className="w-full">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="developer">{t("mc.role_developer")}</SelectItem>
+								<SelectItem value="reviewer">{t("mc.role_reviewer")}</SelectItem>
+								<SelectItem value="tester">{t("mc.role_tester")}</SelectItem>
+								<SelectItem value="planner">{t("mc.role_planner")}</SelectItem>
+								<SelectItem value="orchestrator">{t("mc.role_orchestrator")}</SelectItem>
+							</SelectContent>
+						</Select>
 						<textarea
 							className="w-full text-sm border rounded-md px-3 py-2 outline-none resize-none"
 							rows={2}

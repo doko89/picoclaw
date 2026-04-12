@@ -6,6 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { createTask, type MCTask } from "@/api/mc"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const PRIORITY_OPTIONS = ["low", "normal", "high", "urgent"]
 
@@ -68,15 +69,19 @@ export function TaskCreateDialog({ open, onClose, workspaceId, onCreated }: Task
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
-          <select
-            className="w-full text-sm border rounded-md px-3 py-2"
+          <Select
             value={priority}
-            onChange={(e) => setPriority(e.target.value)}
+            onValueChange={(val) => setPriority(val)}
           >
-            {PRIORITY_OPTIONS.map((p) => (
-              <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PRIORITY_OPTIONS.map((p) => (
+                <SelectItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="flex justify-end gap-2">
             <button onClick={onClose} className="px-3 py-1.5 text-sm border rounded-md">
               Cancel

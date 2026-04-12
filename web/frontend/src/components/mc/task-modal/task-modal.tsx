@@ -14,6 +14,7 @@ import { TeamTab } from "./team-tab"
 import { TaskImages } from "./task-images"
 import { updateTask, updateTaskStatus, deleteTask } from "@/api/mc"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const TABS = [
   { id: "activity", label: "Activity" },
@@ -102,20 +103,28 @@ export function TaskModal({ task, open, onClose, onUpdated }: TaskModalProps) {
                 {task.title}
               </span>
             )}
-            <select
+            <span
               className={cn(
                 "text-xs font-medium rounded-full px-2.5 py-0.5 border",
                 task.status === "done" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" :
                 task.status === "in_progress" ? "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" :
                 "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
               )}
-              value={task.status}
-              onChange={(e) => handleStatusChange(e.target.value)}
             >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
-              ))}
-            </select>
+              <Select
+                value={task.status}
+                onValueChange={(val) => handleStatusChange(val)}
+              >
+                <SelectTrigger className="border-0 bg-transparent p-0 h-auto text-xs font-medium focus:ring-0 focus:ring-offset-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </span>
           </DialogTitle>
         </DialogHeader>
 

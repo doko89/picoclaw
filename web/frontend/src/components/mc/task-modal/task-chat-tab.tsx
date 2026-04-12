@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react"
 import { getTaskNotes, createTaskNote, type MCTaskNote } from "@/api/mc"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface TaskChatTabProps {
   taskId: string
@@ -71,14 +72,18 @@ export function TaskChatTab({ taskId }: TaskChatTabProps) {
       {/* Input */}
       <div className="border-t pt-3 space-y-2">
         <div className="flex gap-2">
-          <select
-            className="text-xs border rounded-md px-2 py-1"
+          <Select
             value={mode}
-            onChange={(e) => setMode(e.target.value as "note" | "direct")}
+            onValueChange={(val) => setMode(val as "note" | "direct")}
           >
-            <option value="note">Note</option>
-            <option value="direct">Direct</option>
-          </select>
+            <SelectTrigger className="h-7 text-xs w-[90px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="note">Note</SelectItem>
+              <SelectItem value="direct">Direct</SelectItem>
+            </SelectContent>
+          </Select>
           <input
             className="flex-1 text-sm border rounded-md px-3 py-1.5 outline-none"
             placeholder="Type a message..."

@@ -301,5 +301,344 @@ export const uploadTaskImage = async (taskId: string, file: File) => {
   return res.json() as Promise<{ image: MCTaskImage; total: number }>
 }
 
+// ─── Autopilot: Products & Health ───────────────────────────────────────────────
+
+export interface MCProductHealthScore {
+  id: string
+  product_id: string
+  overall_score: number
+  research_freshness_score: number
+  pipeline_depth_score: number
+  swipe_velocity_score: number
+  build_success_score: number
+  cost_efficiency_score: number
+  component_data: string | null
+  snapshot_date: string | null
+  calculated_at: string
+}
+
+export interface MCHealthComponentScore {
+  name: string
+  label: string
+  score: number
+  weight: number
+  effective_weight: number
+  raw_value: number
+  unit: string
+  description: string
+}
+
+export interface MCHealthWeightConfig {
+  research: number
+  pipeline: number
+  swipe: number
+  build: number
+  cost: number
+  disabled: string[]
+}
+
+export interface MCHealthScoreResponse {
+  score: MCProductHealthScore
+  components: MCHealthComponentScore[]
+  weights: MCHealthWeightConfig
+  history: MCProductHealthScore[]
+}
+
+export const getProductHealthScore = (productId: string) =>
+  request<MCHealthScoreResponse>(`/products/${productId}/health`)
+
+export const updateProductHealthWeights = (productId: string, weights: MCHealthWeightConfig) =>
+  request<{ success: boolean }>(`/products/${productId}/health/weights`, {
+    method: "PUT",
+    body: JSON.stringify(weights),
+  })
+
+export const getAllProductHealthScores = () =>
+  request<Record<string, number>>("/health-scores")
+
+// ─── Autopilot: Ideas ──────────────────────────────────────────────────────────
+
+export interface MCIdea {
+  id: string
+  product_id: string
+  title: string
+  description: string
+  category: string
+  priority: number
+  source: string
+  status: string
+  suppressed: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface MCListIdeasOptions {
+  status?: string
+  category?: string
+  source?: string
+  limit?: number
+}
+
+export const listIdeas = (productId: string, opts?: MCListIdeasOptions) => {
+  const params = new URLSearchParams()
+  if (opts?.status) params.set("status", opts.status)
+  if (opts?.category) params.set("category", opts.category)
+  if (opts?.source) params.set("source", opts.source)
+  if (opts?.limit) params.set("limit", String(opts.limit))
+  const qs = params.toString()
+  return request<MCIdea[]>(`/products/${productId}/ideas${qs ? `?${qs}` : ""}`)
+}
+
+export const getPendingIdeas = (productId: string) =>
+  request<MCIdea[]>(`/products/${productId}/ideas/pending`)
+
+export const getIdea = (ideaId: string) =>
+  request<MCIdea>(`/ideas/${ideaId}`)
+
+export const createIdea = (productId: string, data: { title: string; description: string; category: string; impact_score?: number }) =>
+  request<{ id: string; title: string; status: string }>(`/products/${productId}/ideas`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+
+export const updateIdea = (ideaId: string, data: { title?: string; description?: string; category?: string; status?: string; user_notes?: string; impact_score?: number; feasibility_score?: number }) =>
+  request<MCIdea>(`/ideas/${ideaId}`, { method: "PATCH", body: JSON.stringify(data) })
+
+// ─── Autopilot: Swipe ───────────────────────────────────────────────────────────
+
+export interface MCSwipeHistoryEntry {
+  id: string
+  idea_id: string
+  product_id: string
+  action: "approve" | "reject" | "maybe" | "fire"
+  category: string
+  tags: string | null
+  impact_score: number | null
+  feasibility_score: number | null
+  complexity: string | null
+  user_notes: string | null
+  created_at: string
+}
+
+export interface MCSwipeStats {
+  total_swipes: number
+  approval_rate: number
+  per_category: Record<string, { approved: number; rejected: number; maybe: number; fire: number }>
+}
+
+export const getSwipeHistory = (productId: string, limit?: number) => {
+  const params = limit ? `?limit=${limit}` : ""
+  return request<MCSwipeHistoryEntry[]>(`/products/${productId}/swipe/history${params}`)
+}
+
+export const getSwipeStats = (productId: string) =>
+  request<MCSwipeStats>(`/products/${productId}/swipe/stats`)
+
+export const undoSwipe = (productId: string, swipeId: string) =>
+  request<{ success: boolean; idea: MCIdea }>(`/products/${productId}/swipe/${swipeId}/undo`, {
+    method: "DELETE",
+  })
+
+export const batchSwipe = (productId: string, actions: Array<{ idea_id: string; action: string }>) =>
+  request<{ success: boolean; count: number }>(`/products/${productId}/swipe/batch`, {
+    method: "POST",
+    body: JSON.stringify({ actions }),
+  })
+
+// ─── Autopilot: Maybe Pool ──────────────────────────────────────────────────────
+
+export interface MCMaybePoolEntry {
+  id: string
+  idea_id: string
+  product_id: string
+  last_evaluated_at: string | null
+  next_evaluate_at: string | null
+  evaluation_count: number
+  evaluation_notes: string | null
+  created_at: string
+  idea_title: string
+  idea_description: string
+  idea_category: string
+  idea_priority: number
+}
+
+export const getMaybePool = (productId: string) =>
+  request<MCMaybePoolEntry[]>(`/products/${productId}/maybe`)
+
+export const resurfaceIdea = (productId: string, maybePoolId: string, reason: string) =>
+  request<{ success: boolean; idea_id: string }>(`/products/${productId}/maybe/resurface`, {
+    method: "POST",
+    body: JSON.stringify({ maybe_pool_id: maybePoolId, reason }),
+  })
+
+// ─── Autopilot: Activity Log ───────────────────────────────────────────────────
+
+export interface MCActivityEntry {
+  id: string
+  product_id: string
+  cycle_id: string
+  cycle_type: string
+  event_type: string
+  message: string
+  detail: string | null
+  cost_usd: number | null
+  tokens_used: number | null
+  created_at: string
+}
+
+export const getActivityLog = (productId: string, limit?: number) =>
+  request<{ entries: MCActivityEntry[] }>(`/products/${productId}/activity${limit ? `?limit=${limit}` : ""}`)
+
+// ─── Autopilot: A/B Testing ────────────────────────────────────────────────────
+
+export interface MCVariant {
+  id: string
+  product_id: string
+  name: string
+  content: string
+  is_control: boolean
+  created_at: string
+}
+
+export interface MCABTest {
+  id: string
+  product_id: string
+  variant_a_id: string
+  variant_b_id: string
+  status: "active" | "concluded" | "cancelled"
+  split_mode: "concurrent" | "alternating"
+  min_swipes: number
+  last_variant_used: string | null
+  winner_variant_id: string | null
+  created_at: string
+  concluded_at: string | null
+}
+
+export interface MCTestComparison {
+  test_id: string
+  variant_a: { variant_id: string; total_swipes: number; approved: number; rejected: number; maybe: number; approval_rate: number; built_count: number; cost_per_built: number }
+  variant_b: { variant_id: string; total_swipes: number; approved: number; rejected: number; maybe: number; approval_rate: number; built_count: number; cost_per_built: number }
+  chi_squared: number
+  p_value: number
+  significance: string
+  winner: string | null
+  recommended_winner: string | null
+}
+
+export const listVariants = (productId: string) =>
+  request<MCVariant[]>(`/products/${productId}/variants`)
+
+export const createVariant = (productId: string, data: { name: string; content: string; is_control?: boolean }) =>
+  request<{ id: string; name: string }>(`/products/${productId}/variants`, { method: "POST", body: JSON.stringify(data) })
+
+export const getVariant = (productId: string, variantId: string) =>
+  request<MCVariant>(`/products/${productId}/variants/${variantId}`)
+
+export const updateVariant = (productId: string, variantId: string, data: { name: string; content: string }) =>
+  request<MCVariant>(`/products/${productId}/variants/${variantId}`, { method: "PATCH", body: JSON.stringify(data) })
+
+export const deleteVariant = (productId: string, variantId: string) =>
+  request<{ success: boolean }>(`/products/${productId}/variants/${variantId}`, { method: "DELETE" })
+
+export const listABTests = (productId: string) =>
+  request<MCABTest[]>(`/products/${productId}/ab-tests`)
+
+export const startABTest = (productId: string, data: { variant_a_id: string; variant_b_id: string; min_swipes?: number; split_mode?: string }) =>
+  request<{ test_id: string; status: string }>(`/products/${productId}/ab-tests`, { method: "POST", body: JSON.stringify(data) })
+
+export const getABTest = (productId: string, testId: string) =>
+  request<MCABTest>(`/products/${productId}/ab-tests/${testId}`)
+
+export const concludeABTest = (productId: string, testId: string, winnerVariantId: string) =>
+  request<{ success: boolean }>(`/products/${productId}/ab-tests/${testId}/conclude`, {
+    method: "PATCH",
+    body: JSON.stringify({ winner_variant_id: winnerVariantId }),
+  })
+
+export const getABTestComparison = (productId: string, testId: string) =>
+  request<MCTestComparison>(`/products/${productId}/ab-tests/${testId}/comparison`)
+
+export const promoteABWinner = (productId: string, testId: string) =>
+  request<{ success: boolean; winner_variant_id: string }>(`/products/${productId}/ab-tests/${testId}/promote`, { method: "POST" })
+
+// ─── Autopilot: Scheduling ─────────────────────────────────────────────────────
+
+export interface MCSchedule {
+  id: string
+  product_id: string
+  schedule_type: string
+  cron_expression: string
+  timezone: string
+  enabled: boolean
+  last_run_at: string | null
+  next_run_at: string | null
+  config: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const listSchedules = (productId: string) =>
+  request<MCSchedule[]>(`/products/${productId}/schedules`)
+
+export const createSchedule = (productId: string, data: { schedule_type: string; cron_expression: string; timezone?: string; config?: string }) =>
+  request<{ id: string; schedule_type: string }>(`/products/${productId}/schedules`, { method: "POST", body: JSON.stringify(data) })
+
+export const updateSchedule = (scheduleId: string, data: { cron_expression?: string; timezone?: string; enabled?: boolean; config?: string }) =>
+  request<{ success: boolean }>(`/schedules/${scheduleId}`, { method: "PATCH", body: JSON.stringify(data) })
+
+export const deleteSchedule = (scheduleId: string) =>
+  request<{ success: boolean }>(`/schedules/${scheduleId}`, { method: "DELETE" })
+
+// ─── Autopilot: Costs ─────────────────────────────────────────────────────────
+
+export interface MCCostEvent {
+  id: string
+  product_id: string | null
+  workspace_id: string
+  task_id: string | null
+  cycle_id: string | null
+  agent_id: string | null
+  event_type: string
+  provider: string | null
+  model: string | null
+  tokens_input: number
+  tokens_output: number
+  cost_usd: number
+  metadata: string | null
+  created_at: string
+}
+
+export interface MCCostCap {
+  id: string
+  workspace_id: string
+  product_id: string | null
+  cap_type: string
+  limit_usd: number
+  current_spend_usd: number
+  period_start: string | null
+  period_end: string | null
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+export const getProductCosts = (productId: string) =>
+  request<{ events: MCCostEvent[] }>(`/products/${productId}/costs`)
+
+export const listCostCaps = (workspaceId: string, productId?: string) => {
+  const params = new URLSearchParams({ workspace_id: workspaceId })
+  if (productId) params.set("product_id", productId)
+  return request<MCCostCap[]>(`/costs/caps?${params}`)
+}
+
+export const createCostCap = (data: { workspace_id: string; product_id?: string; cap_type: string; limit_usd: number; period_start?: string; period_end?: string }) =>
+  request<{ id: string; cap_type: string }>("/costs/caps", { method: "POST", body: JSON.stringify(data) })
+
+export const updateCostCap = (capId: string, data: { limit_usd?: number; status?: string }) =>
+  request<{ success: boolean }>(`/costs/caps/${capId}`, { method: "PATCH", body: JSON.stringify(data) })
+
+export const deleteCostCap = (capId: string) =>
+  request<{ success: boolean }>(`/costs/caps/${capId}`, { method: "DELETE" })
+
 export const deleteTaskImage = (taskId: string, filename: string) =>
   request<{ success: boolean; remaining: number }>(`/tasks/${taskId}/images`, { method: "DELETE", body: JSON.stringify({ filename }) })

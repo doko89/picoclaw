@@ -13,6 +13,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -288,6 +289,14 @@ func main() {
 
 	// Initialize Mission Control broadcaster
 	mcBroadcaster := missioncontrol.NewBroadcaster()
+	// Wire up SSE broadcast function for missioncontrol package
+	missioncontrol.SSEBroadcast = func(eventType string, payload map[string]interface{}) {
+		data, _ := json.Marshal(payload)
+		mcBroadcaster.Broadcast(missioncontrol.SSEEvent{
+			Type:    eventType,
+			Payload: data,
+		})
+	}
 	apiHandler.SetBroadcaster(mcBroadcaster)
 	apiHandler.SetPicoHome(picoHome)
 

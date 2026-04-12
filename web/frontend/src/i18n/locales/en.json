@@ -764,6 +764,15 @@
     "repo_url": "Repository URL",
     "live_url": "Website URL",
     "research_enabled": "Research Enabled",
-    "ideation_enabled": "Ideation Enabled"
+    "ideation_enabled": "Ideation Enabled",
+    "ideas_tab": "Ideas",
+    "research_tab": "Research",
+    "build_queue": "Build Queue",
+    "maybe_pool": "Maybe Pool",
+    "health": "Health",
+    "program": "Program",
+    "review_all": "Review All",
+    "undo": "Undo",
+    "swiped_action": "Swiped {{action}}"
   }
 }

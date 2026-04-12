@@ -67,3 +67,14 @@ func (b *Broadcaster) ActiveCount() int {
 	defer b.mu.RUnlock()
 	return len(b.clients)
 }
+
+// SSEBroadcast is the global SSE broadcast function.
+// Set by main.go after the broadcaster is created.
+var SSEBroadcast func(eventType string, payload map[string]interface{})
+
+// BroadcastEvent is a helper that calls SSEBroadcast if set.
+func BroadcastEvent(eventType string, payload map[string]interface{}) {
+	if SSEBroadcast != nil {
+		SSEBroadcast(eventType, payload)
+	}
+}

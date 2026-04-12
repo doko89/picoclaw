@@ -34,13 +34,22 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { ActivityPanel } from "@/components/mc/autopilot/ActivityPanel";
+import { UndoToast } from "@/components/mc/autopilot/UndoToast";
+import { IdeasList } from "@/components/mc/autopilot/IdeasList";
+import { ResearchReport } from "@/components/mc/autopilot/ResearchReport";
+import { BuildQueue } from "@/components/mc/autopilot/BuildQueue";
+import { MaybePool } from "@/components/mc/autopilot/MaybePool";
+import { HealthWeightSliders } from "@/components/mc/autopilot/HealthWeightSliders";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/mc/autopilot/$productId")({
 	component: ProductDetail,
 });
 
+type Tab = "overview" | "swipe" | "ideas" | "research" | "build" | "maybe" | "settings";
+
 function ProductDetail() {
-	const { t } = useTranslation();
 	const { productId } = Route.useParams();
 	const setSelectedProductId = useSetAtom(mcSelectedProductIdAtom);
 
@@ -49,10 +58,13 @@ function ProductDetail() {
 	}, [productId, setSelectedProductId]);
 
 	return (
-		<div className="p-6">
-			<Suspense fallback={<div className="text-muted-foreground">{t("mc.loading")}</div>}>
-				<ProductDetailContent productId={productId} />
-			</Suspense>
+		<div className="flex h-full">
+			<div className="flex-1 p-6 overflow-y-auto">
+				<Suspense fallback={<div className="text-muted-foreground">Loading...</div>}>
+					<ProductDetailContent productId={productId} />
+				</Suspense>
+			</div>
+			<ActivityPanel productId={productId} />
 		</div>
 	);
 }
@@ -70,8 +82,8 @@ function ProductDetailContent({ productId }: { productId: string }) {
 	const [loadingResearch, setLoadingResearch] = useAtom(mcLoadingResearchAtom);
 	const [loadingIdeation, setLoadingIdeation] = useAtom(mcLoadingIdeationAtom);
 	const [runningResearch, setRunningResearch] = useAtom(mcRunningResearchAtom);
-	const [runningIdeation, setRunningIdeation] = useAtom(mcRunningIdeationAtom);
-	const [activeTab, setActiveTab] = useState<"overview" | "swipe" | "settings">("overview");
+	const [runningIdeation, setRunningIdeationAtom] = useAtom(mcRunningIdeationAtom);
+	const [activeTab, setActiveTab] = useState<Tab>("overview");
 	const [showEdit, setShowEdit] = useState(false);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 	const [editName, setEditName] = useState("");
@@ -83,6 +95,12 @@ function ProductDetailContent({ productId }: { productId: string }) {
 	const [editIdeation, setEditIdeation] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const navigate = useNavigate();
+
+	// Undo toast state
+	const [undoData, setUndoData] = useState<{
+		swipeId: string;
+		idea: MCIdea;
+	} | null>(null);
 
 	useEffect(() => {
 		if (product) {
@@ -116,7 +134,7 @@ function ProductDetailContent({ productId }: { productId: string }) {
 		if (!card) return;
 
 		try {
-			await swipeIdea(card.id, {
+			const res = await swipeIdea(card.id, {
 				product_id: productId,
 				action,
 			});
@@ -129,6 +147,11 @@ function ProductDetailContent({ productId }: { productId: string }) {
 				setSwipeStats({ ...swipeStats, maybe: swipeStats.maybe + 1 });
 			}
 
+			// Show undo toast (use idea id as swipe identifier)
+			if (res?.success) {
+				setUndoData({ swipeId: card.id, idea: card });
+			}
+
 			if (currentIndex < swipeDeck.length - 1) {
 				setCurrentIndex(currentIndex + 1);
 			} else {
@@ -139,6 +162,11 @@ function ProductDetailContent({ productId }: { productId: string }) {
 			toast.error(t("mc.error_swipe"));
 		}
 	}, [swipeDeck, currentIndex, swipeStats, productId, t]);
+
+	function handleUndoSwipe(_idea: MCIdea) {
+		setUndoData(null);
+		loadData();
+	}
 
 	function openEditDialog() {
 		if (!product) return;
@@ -221,6 +249,16 @@ function ProductDetailContent({ productId }: { productId: string }) {
 
 	const latestResearch = researchCycles[0];
 
+	const tabs: { key: Tab; label: string; badge?: number }[] = [
+		{ key: "overview", label: t("mc.overview") },
+		{ key: "swipe", label: t("mc.swipe_deck"), badge: swipeDeck.length },
+		{ key: "ideas", label: t("mc.ideas_tab") },
+		{ key: "research", label: t("mc.research_tab") },
+		{ key: "build", label: t("mc.build_queue") },
+		{ key: "maybe", label: t("mc.maybe_pool") },
+		{ key: "settings", label: t("mc.settings") },
+	];
+
 	return (
 		<div className="space-y-6">
 			{/* Header */}
@@ -238,24 +276,16 @@ function ProductDetailContent({ productId }: { productId: string }) {
 					)}
 				</div>
 				<div className="flex gap-2 items-center">
-					<button
-						onClick={() => setActiveTab("overview")}
-						className={`px-4 py-2 rounded-lg ${activeTab === "overview" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
-					>
-						{t("mc.overview")}
-					</button>
-					<button
-						onClick={() => setActiveTab("swipe")}
-						className={`px-4 py-2 rounded-lg ${activeTab === "swipe" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
-					>
-						{t("mc.swipe_deck")} {swipeDeck.length > 0 && `(${swipeDeck.length})`}
-					</button>
-					<button
-						onClick={() => setActiveTab("settings")}
-						className={`px-4 py-2 rounded-lg ${activeTab === "settings" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
-					>
-						{t("mc.settings")}
-					</button>
+					{tabs.map((tab) => (
+						<button
+							key={tab.key}
+							onClick={() => setActiveTab(tab.key)}
+							className={`px-3 py-1.5 text-sm rounded-lg ${activeTab === tab.key ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+						>
+							{tab.label}
+							{tab.badge ? ` (${tab.badge})` : ""}
+						</button>
+					))}
 					<div className="border-l pl-2 flex gap-1">
 						<button onClick={openEditDialog} className="p-1.5 text-muted-foreground hover:text-foreground rounded">
 							<IconPencil size={16} />
@@ -267,6 +297,7 @@ function ProductDetailContent({ productId }: { productId: string }) {
 				</div>
 			</div>
 
+			{/* Tab Content */}
 			{activeTab === "overview" ? (
 				<>
 					{/* Actions */}
@@ -290,7 +321,7 @@ function ProductDetailContent({ productId }: { productId: string }) {
 						</button>
 						<button
 							onClick={async () => {
-								setRunningIdeation(true);
+								setRunningIdeationAtom(true);
 								try {
 									await runMCIdeation(productId, {
 										research_cycle_id: latestResearch?.id,
@@ -300,7 +331,7 @@ function ProductDetailContent({ productId }: { productId: string }) {
 									console.error("Failed to run ideation:", error);
 									toast.error(t("mc.error_run_ideation"));
 								}
-								setRunningIdeation(false);
+								setRunningIdeationAtom(false);
 							}}
 							disabled={runningIdeation || !latestResearch}
 							className="px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50"
@@ -348,112 +379,135 @@ function ProductDetailContent({ productId }: { productId: string }) {
 					onSwipe={handleSwipe}
 					stats={swipeStats}
 				/>
+			) : activeTab === "ideas" ? (
+				<IdeasList productId={productId} />
+			) : activeTab === "research" ? (
+				<ResearchReport
+					reportContent={latestResearch?.report}
+					phase={latestResearch?.phase}
+					cycleId={latestResearch?.id}
+				/>
+			) : activeTab === "build" ? (
+				<BuildQueue productId={productId} />
+			) : activeTab === "maybe" ? (
+				<MaybePool productId={productId} />
 			) : (
 				/* Settings tab */
-				<div className="rounded-lg border bg-card p-4 space-y-4">
-					<h2 className="text-lg font-semibold">{t("mc.product_settings")}</h2>
-					<div className="space-y-3">
-						<div>
-							<label className="text-sm font-medium">{t("mc.automation_tier")}</label>
-							<p className="text-xs text-muted-foreground mb-1">{t("mc.automation_tier_desc")}</p>
-							<select
-								className="w-full text-sm border rounded-md px-3 py-2"
-								value={product.automation_tier}
-								onChange={async (e) => {
-									try {
-										await updateMCProduct(productId, { automation_tier: e.target.value });
-										setProducts(products.map((p) => p.id === productId ? { ...p, automation_tier: e.target.value } : p));
-									} catch (error) {
-										console.error("Failed to update tier:", error);
-										toast.error(t("mc.error_update_product"));
-									}
-								}}
+				<div className="space-y-6">
+					<div className="rounded-lg border bg-card p-4 space-y-4">
+						<h2 className="text-lg font-semibold">{t("mc.product_settings")}</h2>
+						<div className="space-y-3">
+							<div>
+								<label className="text-sm font-medium">{t("mc.automation_tier")}</label>
+								<p className="text-xs text-muted-foreground mb-1">{t("mc.automation_tier_desc")}</p>
+								<Select
+									value={product.automation_tier}
+									onValueChange={async (value) => {
+										try {
+											await updateMCProduct(productId, { automation_tier: value });
+											setProducts(products.map((p) => p.id === productId ? { ...p, automation_tier: value } : p));
+										} catch (error) {
+											console.error("Failed to update tier:", error);
+											toast.error(t("mc.error_update_product"));
+										}
+									}}
+								>
+									<SelectTrigger className="w-full">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="supervised">{t("mc.tier_supervised")}</SelectItem>
+										<SelectItem value="semi_auto">{t("mc.tier_semi_auto")}</SelectItem>
+										<SelectItem value="full_auto">{t("mc.tier_full_auto")}</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<div>
+								<label className="text-sm font-medium">{t("mc.repo_url")}</label>
+								<input
+									className="w-full text-sm border rounded-md px-3 py-2 outline-none"
+									placeholder="https://github.com/..."
+									defaultValue={product.repo_url}
+									onBlur={async (e) => {
+										if (e.target.value !== product.repo_url) {
+											try {
+												await updateMCProduct(productId, { repo_url: e.target.value });
+												setProducts(products.map((p) => p.id === productId ? { ...p, repo_url: e.target.value } : p));
+											} catch (error) {
+												console.error("Failed to update repo URL:", error);
+												toast.error(t("mc.error_update_product"));
+											}
+										}
+									}}
+								/>
+							</div>
+							<div>
+								<label className="text-sm font-medium">{t("mc.live_url")}</label>
+								<input
+									className="w-full text-sm border rounded-md px-3 py-2 outline-none"
+									placeholder="https://..."
+									defaultValue={product.live_url}
+									onBlur={async (e) => {
+										if (e.target.value !== product.live_url) {
+											try {
+												await updateMCProduct(productId, { live_url: e.target.value });
+												setProducts(products.map((p) => p.id === productId ? { ...p, live_url: e.target.value } : p));
+											} catch (error) {
+												console.error("Failed to update website URL:", error);
+												toast.error(t("mc.error_update_product"));
+											}
+										}
+									}}
+								/>
+							</div>
+							<div className="flex gap-6">
+								<label className="flex items-center gap-2 text-sm">
+									<input
+										type="checkbox"
+										checked={product.research_enabled}
+										onChange={async (e) => {
+											try {
+												await updateMCProduct(productId, { research_enabled: e.target.checked });
+												setProducts(products.map((p) => p.id === productId ? { ...p, research_enabled: e.target.checked } : p));
+											} catch (error) {
+												console.error("Failed to toggle research:", error);
+												toast.error(t("mc.error_update_product"));
+											}
+										}}
+									/>
+									{t("mc.research_enabled")}
+								</label>
+								<label className="flex items-center gap-2 text-sm">
+									<input
+										type="checkbox"
+										checked={product.ideation_enabled}
+										onChange={async (e) => {
+											try {
+												await updateMCProduct(productId, { ideation_enabled: e.target.checked });
+												setProducts(products.map((p) => p.id === productId ? { ...p, ideation_enabled: e.target.checked } : p));
+											} catch (error) {
+												console.error("Failed to toggle ideation:", error);
+												toast.error(t("mc.error_update_product"));
+											}
+										}}
+									/>
+									{t("mc.ideation_enabled")}
+								</label>
+							</div>
+						</div>
+						<div className="pt-4 border-t">
+							<button
+								onClick={() => setShowDeleteConfirm(true)}
+								className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-md"
 							>
-								<option value="supervised">{t("mc.tier_supervised")}</option>
-								<option value="semi_auto">{t("mc.tier_semi_auto")}</option>
-								<option value="full_auto">{t("mc.tier_full_auto")}</option>
-							</select>
-						</div>
-						<div>
-							<label className="text-sm font-medium">{t("mc.repo_url")}</label>
-							<input
-								className="w-full text-sm border rounded-md px-3 py-2 outline-none"
-								placeholder="https://github.com/..."
-								defaultValue={product.repo_url}
-								onBlur={async (e) => {
-									if (e.target.value !== product.repo_url) {
-										try {
-											await updateMCProduct(productId, { repo_url: e.target.value });
-											setProducts(products.map((p) => p.id === productId ? { ...p, repo_url: e.target.value } : p));
-										} catch (error) {
-											console.error("Failed to update repo URL:", error);
-											toast.error(t("mc.error_update_product"));
-										}
-									}
-								}}
-							/>
-						</div>
-						<div>
-							<label className="text-sm font-medium">{t("mc.live_url")}</label>
-							<input
-								className="w-full text-sm border rounded-md px-3 py-2 outline-none"
-								placeholder="https://..."
-								defaultValue={product.live_url}
-								onBlur={async (e) => {
-									if (e.target.value !== product.live_url) {
-										try {
-											await updateMCProduct(productId, { live_url: e.target.value });
-											setProducts(products.map((p) => p.id === productId ? { ...p, live_url: e.target.value } : p));
-										} catch (error) {
-											console.error("Failed to update website URL:", error);
-											toast.error(t("mc.error_update_product"));
-										}
-									}
-								}}
-							/>
-						</div>
-						<div className="flex gap-6">
-							<label className="flex items-center gap-2 text-sm">
-								<input
-									type="checkbox"
-									checked={product.research_enabled}
-									onChange={async (e) => {
-										try {
-											await updateMCProduct(productId, { research_enabled: e.target.checked });
-											setProducts(products.map((p) => p.id === productId ? { ...p, research_enabled: e.target.checked } : p));
-										} catch (error) {
-											console.error("Failed to toggle research:", error);
-											toast.error(t("mc.error_update_product"));
-										}
-									}}
-								/>
-								{t("mc.research_enabled")}
-							</label>
-							<label className="flex items-center gap-2 text-sm">
-								<input
-									type="checkbox"
-									checked={product.ideation_enabled}
-									onChange={async (e) => {
-										try {
-											await updateMCProduct(productId, { ideation_enabled: e.target.checked });
-											setProducts(products.map((p) => p.id === productId ? { ...p, ideation_enabled: e.target.checked } : p));
-										} catch (error) {
-											console.error("Failed to toggle ideation:", error);
-											toast.error(t("mc.error_update_product"));
-										}
-									}}
-								/>
-								{t("mc.ideation_enabled")}
-							</label>
+								{t("mc.delete_product")}
+							</button>
 						</div>
 					</div>
-					<div className="pt-4 border-t">
-						<button
-							onClick={() => setShowDeleteConfirm(true)}
-							className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-md"
-						>
-							{t("mc.delete_product")}
-						</button>
+
+					{/* Health Score Weights */}
+					<div className="rounded-lg border bg-card p-4">
+						<HealthWeightSliders productId={productId} />
 					</div>
 				</div>
 			)}
@@ -491,15 +545,19 @@ function ProductDetailContent({ productId }: { productId: string }) {
 							value={editWebsite}
 							onChange={(e) => setEditWebsite(e.target.value)}
 						/>
-						<select
-							className="w-full text-sm border rounded-md px-3 py-2"
+						<Select
 							value={editTier}
-							onChange={(e) => setEditTier(e.target.value)}
+							onValueChange={(val) => setEditTier(val)}
 						>
-							<option value="supervised">{t("mc.tier_supervised")}</option>
-							<option value="semi_auto">{t("mc.tier_semi_auto")}</option>
-							<option value="full_auto">{t("mc.tier_full_auto")}</option>
-						</select>
+							<SelectTrigger className="w-full">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="supervised">{t("mc.tier_supervised")}</SelectItem>
+								<SelectItem value="semi_auto">{t("mc.tier_semi_auto")}</SelectItem>
+								<SelectItem value="full_auto">{t("mc.tier_full_auto")}</SelectItem>
+							</SelectContent>
+						</Select>
 						<div className="flex gap-6">
 							<label className="flex items-center gap-2 text-sm">
 								<input type="checkbox" checked={editResearch} onChange={(e) => setEditResearch(e.target.checked)} />
@@ -545,6 +603,17 @@ function ProductDetailContent({ productId }: { productId: string }) {
 					</div>
 				</DialogContent>
 			</Dialog>
+
+			{/* Undo Toast */}
+			{undoData && (
+				<UndoToast
+					swipeId={undoData.swipeId}
+					productId={productId}
+					idea={undoData.idea}
+					onUndo={handleUndoSwipe}
+					onDismiss={() => setUndoData(null)}
+				/>
+			)}
 		</div>
 	);
 }

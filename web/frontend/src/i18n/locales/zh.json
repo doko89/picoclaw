@@ -764,6 +764,15 @@
     "repo_url": "仓库地址",
     "live_url": "网站地址",
     "research_enabled": "启用调研",
-    "ideation_enabled": "启用创意"
+    "ideation_enabled": "启用创意",
+    "ideas_tab": "创意列表",
+    "research_tab": "调研",
+    "build_queue": "构建队列",
+    "maybe_pool": "待定池",
+    "health": "健康度",
+    "program": "产品程序",
+    "review_all": "批量审核",
+    "undo": "撤销",
+    "swiped_action": "已{{action}}"
   }
 }

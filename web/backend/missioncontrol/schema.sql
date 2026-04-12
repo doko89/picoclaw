@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS workflow_templates (
   workspace_id TEXT DEFAULT 'default' REFERENCES workspaces(id),
   name TEXT NOT NULL,
   description TEXT,
+  category TEXT DEFAULT 'standard',
   stages TEXT NOT NULL,
   fail_targets TEXT,
   is_default INTEGER DEFAULT 0,
